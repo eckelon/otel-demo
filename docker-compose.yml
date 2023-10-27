@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  nginx:
+    build:
+      context: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+      - jaeger
+    command: ["sh", "-c", "export LD_LIBRARY_PATH=/lib:/usr/lib:/usr/lib/x86_64-linux-gnu:/usr/local/lib && /usr/local/nginx/sbin/nginx -g 'daemon off;'"]
+ 
+  app:
+    build: ./app
+    environment:
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
+    ports:
+      - "5000:5000"
+
+  traffic-generator:
+    build: ./traffic-generator
+    command: ["-z", "5m", "-q", "5", "-c", "2", "http://nginx"]
+    depends_on:
+      - nginx
+    
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "13133:13133"  # Health check
+      - "14268:14268"  # Collector
+      - "14250:14250"  # Collector gRPC
+      - "5775:5775/udp"  # Agent Compact Thrift
+      - "6831:6831/udp"  # Agent Compact Thrift
+      - "6832:6832/udp"  # Agent Binary Thrift
+      - "5778:5778"  # Agent HTTP
+      - "4317:4317"  # OTLP gRPC Receiver
